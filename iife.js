@@ -408,7 +408,7 @@ class Compressor {
     }
 
     // compress config
-    compress(config, js_config, global_base = false) {
+    compress(config, global_base = false, deep = false) {
 
         if (config === null) {
             config = [];
@@ -439,9 +439,35 @@ class Compressor {
         }
 
         if (config instanceof Array) {
+
+            let nocapture;
             for (var i = 0, l = config.length; i < l; i++) {
-                config[i] = this.compress(config[i], false, global_base);
+
+                if (!deep) {
+                    // no capture config
+                    if (i === 2 && (!config[i] || !config[i].length)) {
+                        delete config[i];
+                        nocapture = true;
+                        continue;
+                    }
+                    if (i === 3 && nocapture) {
+                        delete config[i];
+                        break;
+                    }
+                }
+
+                config[i] = this.compress(config[i], global_base, true);
             }
+            if (!deep) {
+                if (nocapture && (!config[1] || !Object.keys(config[1]).length)) {
+                    delete config[1];
+                }
+            }
+
+            config = config.filter((value) => {
+                return value !== undefined
+            });
+
         } else {
 
             if (typeof config === 'object') {
@@ -479,7 +505,7 @@ class Compressor {
 
                         // deep array
                         if (typeof data === 'object' && ['proxy', 'attributes'].indexOf(key) === -1) {
-                            config[key] = data = this.compress(data, false, global_base);
+                            config[key] = data = this.compress(data, global_base, true);
                         }
 
                         // data
@@ -511,24 +537,6 @@ class Compressor {
             }
         }
 
-        // add javascript loader config at data-c slot 5 t/m 8
-        if (js_config) {
-            config = [config];
-            var _compressed = [this.compress(js_config, false, global_base)];
-            if (_compressed) {
-                var l = 7 - (4 - _compressed.length);
-                for (var i = 0; i <= l; i++) {
-                    if (i < 4) {
-                        if (typeof config[i] === 'undefined' || !config[i]) {
-                            config[i] = 0;
-                        }
-                    } else {
-                        config[i] = _compressed[i - 4];
-                    }
-                }
-            }
-        }
-
         return config;
     }
 
@@ -555,7 +563,7 @@ exports.version = function(root_path) {
 
 // Compress config
 var compressor;
-exports.compress = function(config, js_config, global_base = false, options = {}) {
+exports.compress = function(config, global_base = false, options = {}) {
 
     if (!compressor) {
         if (typeof options !== 'object') {
@@ -563,7 +571,7 @@ exports.compress = function(config, js_config, global_base = false, options = {}
         }
         compressor = new Compressor(options);
     }
-    return JSON.stringify(compressor.compress(config, js_config, global_base));
+    return JSON.stringify(compressor.compress(config, global_base));
 };
 
 // generate IIFE code for inlining (very fast via memory cache)
