@@ -68,7 +68,7 @@ var iife = (function() {
     }
 
     // compress config
-    function compress(config, js_config, global_base = false) {
+    function compress(config, global_base = false) {
 
         if (config === null) {
             config = [];
@@ -99,9 +99,33 @@ var iife = (function() {
         }
 
         if (config instanceof Array) {
+            let nocapture;
             for (var i = 0, l = config.length; i < l; i++) {
-                config[i] = compress(config[i], false, global_base);
+
+                if (!deep) {
+                    // no capture config
+                    if (i === 2 && (!config[i] || !config[i].length)) {
+                        delete config[i];
+                        nocapture = true;
+                        continue;
+                    }
+                    if (i === 3 && nocapture) {
+                        delete config[i];
+                        break;
+                    }
+                }
+
+                config[i] = compress(config[i], global_base, true);
             }
+            if (!deep) {
+                if (nocapture && (!config[1] || !Object.keys(config[1]).length)) {
+                    delete config[1];
+                }
+            }
+
+            config = config.filter((value) => {
+                return value !== undefined
+            });
         } else {
 
             if (typeof config === 'object') {
@@ -167,24 +191,6 @@ var iife = (function() {
             } else if (typeof config === 'string' && global_base) {
                 if (config.indexOf(global_base) === 0) {
                     config = config.replace(global_base, '', config);
-                }
-            }
-        }
-
-        // add javascript loader config at data-c slot 5 t/m 8
-        if (js_config) {
-            config = [config];
-            var _compressed = [compress(js_config, false, global_base)];
-            if (_compressed) {
-                var l = 7 - (4 - _compressed.length);
-                for (var i = 0; i <= l; i++) {
-                    if (i < 4) {
-                        if (typeof config[i] === 'undefined' || !config[i]) {
-                            config[i] = 0;
-                        }
-                    } else {
-                        config[i] = _compressed[i - 4];
-                    }
                 }
             }
         }
